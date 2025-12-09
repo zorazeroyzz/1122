@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { QUESTIONS, getCategories } from '../services/questions';
 import { ProgressMap, UserProgress, QuestionType, Question } from '../types';
-import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight, Eye, History } from 'lucide-react';
+import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight, Eye, History, Search } from 'lucide-react';
 import QuestionListView from './QuestionListView';
 
 interface DashboardProps {
@@ -13,12 +13,20 @@ interface DashboardProps {
 
 // Helper interface for the active list view
 interface ActiveListViewData {
-  type: 'mastered' | 'hard' | 'study';
+  type: 'mastered' | 'hard' | 'study' | 'search';
   title: string;
   questions: Question[];
 }
 
 const CHANGELOG = [
+  {
+    version: 'v1.3',
+    date: '2024-05-24',
+    changes: [
+      '新增全局搜索功能：支持通过关键词快速查找题目。',
+      '题库校对：根据最新文档资料，对电气、动火、危化品、辐射防护等题库进行了全面校对，确保题干与选项一字不差。'
+    ]
+  },
   {
     version: 'v1.2',
     date: '2024-05-23',
@@ -50,6 +58,7 @@ const CHANGELOG = [
 const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStartReview, onReset }) => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeListView, setActiveListView] = useState<ActiveListViewData | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const categories = getCategories();
   
@@ -60,6 +69,16 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
   const masteredCount = progressValues.filter(p => p.status === 'mastered').length;
   const hardQuestionsCount = progressValues.filter(p => p.status === 'learning').length;
   const newQuestionsCount = totalQuestions - masteredCount - hardQuestionsCount;
+
+  // Search Logic
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const lowerQuery = searchQuery.toLowerCase();
+    return QUESTIONS.filter(q => 
+        q.question.toLowerCase().includes(lowerQuery) || 
+        q.options?.some(o => o.toLowerCase().includes(lowerQuery))
+    );
+  }, [searchQuery]);
 
   const getCategoryStats = (cat: string) => {
       const qs = QUESTIONS.filter(q => q.category === cat);
@@ -106,12 +125,49 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
     setSelectedCategory(null); // Close the category modal
   };
 
+  // Open Search Results
+  const handleOpenSearchResults = () => {
+      if (searchResults.length === 0) return;
+      setActiveListView({
+          type: 'search',
+          title: `搜索结果: "${searchQuery}"`,
+          questions: searchResults
+      });
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 pb-24 relative">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-slate-800 mb-2">安全考核记忆大师</h1>
         <p className="text-slate-500">极速刷题模式：点击“下一题”即视为掌握。</p>
       </header>
+
+      {/* Search Bar */}
+      <div className="mb-8 relative group z-10">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+            <Search className="w-5 h-5" />
+        </div>
+        <input 
+            type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="搜索题目关键字..."
+            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+        />
+        {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 p-2 animate-in fade-in slide-in-from-top-2">
+                <button 
+                    onClick={handleOpenSearchResults}
+                    className="w-full flex items-center justify-between p-3 hover:bg-indigo-50 rounded-lg transition-colors group/result"
+                >
+                    <span className="font-medium text-slate-700">找到 <span className="text-indigo-600 font-bold">{searchResults.length}</span> 个相关题目</span>
+                    <span className="text-xs text-indigo-500 font-bold flex items-center gap-1 opacity-0 group-hover/result:opacity-100 transition-opacity">
+                        查看详情 <ChevronRight className="w-4 h-4" />
+                    </span>
+                </button>
+            </div>
+        )}
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

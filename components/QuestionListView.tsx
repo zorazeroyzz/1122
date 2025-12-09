@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { X, CheckCircle, BookOpen, AlertTriangle, ChevronDown, ChevronRight, Filter, Zap } from 'lucide-react';
+import { X, CheckCircle, BookOpen, AlertTriangle, ChevronDown, ChevronRight, Filter, Zap, Search } from 'lucide-react';
 import { Question } from '../types';
 
 interface QuestionListViewProps {
   title: string;
-  type: 'mastered' | 'hard' | 'study'; // Added 'study'
+  type: 'mastered' | 'hard' | 'study' | 'search';
   questions: Question[];
   onClose: () => void;
 }
@@ -64,7 +64,8 @@ const QuestionListView: React.FC<QuestionListViewProps> = ({ title, type, questi
       switch (type) {
           case 'mastered': return 'bg-green-600';
           case 'hard': return 'bg-orange-500';
-          case 'study': return 'bg-indigo-600'; // Blue for study mode
+          case 'study': return 'bg-indigo-600'; 
+          case 'search': return 'bg-violet-600';
           default: return 'bg-slate-700';
       }
   };
@@ -74,6 +75,7 @@ const QuestionListView: React.FC<QuestionListViewProps> = ({ title, type, questi
           case 'mastered': return <CheckCircle className="w-6 h-6" />;
           case 'hard': return <AlertTriangle className="w-6 h-6" />;
           case 'study': return <Zap className="w-6 h-6" />;
+          case 'search': return <Search className="w-6 h-6" />;
           default: return <BookOpen className="w-6 h-6" />;
       }
   };
@@ -106,15 +108,11 @@ const QuestionListView: React.FC<QuestionListViewProps> = ({ title, type, questi
           </div>
         ) : (
           categories.map(category => {
-            // Default: if only one category (e.g. specialized study), expand it. 
-            // If viewing global lists (mastered/hard), default to collapsed if too many, but here we keep simple.
             const isCollapsed = collapsedCats.includes(category);
             const catQuestions = groupedQuestions[category];
             
             return (
                 <div key={category} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-200">
-                    {/* Collapsible Header - Only show if we have multiple categories or generic lists. 
-                        If we are in 'study' mode for a specific category, we might still want it for consistency. */}
                     <button 
                         onClick={() => toggleCategory(category)}
                         className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors border-b border-slate-100"
@@ -125,7 +123,8 @@ const QuestionListView: React.FC<QuestionListViewProps> = ({ title, type, questi
                         </div>
                         <span className={`text-xs font-bold px-2.5 py-1 rounded-full 
                             ${type === 'mastered' ? 'bg-green-100 text-green-700' : 
-                              type === 'hard' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                              type === 'hard' ? 'bg-orange-100 text-orange-700' : 
+                              type === 'search' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>
                            {catQuestions.length}
                         </span>
                     </button>
