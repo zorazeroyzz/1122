@@ -5,6 +5,7 @@ import { StudyMode, QuestionType } from './types';
 import Dashboard from './components/Dashboard';
 import Flashcard from './components/Flashcard';
 import { ArrowLeft, Save } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const SESSION_KEY = 'safety_exam_session_v2';
 
@@ -102,7 +103,7 @@ function App() {
 
                 return getWeight(b.id) - getWeight(a.id) || (0.5 - Math.random());
             })
-            .slice(0, 30) // Batch size
+            .slice(0, 20) // Batch size adjusted to 20 per request
             .map(q => q.id);
     }
 
@@ -129,6 +130,12 @@ function App() {
     }
   };
 
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+    }
+  };
+
   const currentQuestion = useMemo(() => {
       if (mode !== StudyMode.STUDY) return null;
       return QUESTIONS.find(q => q.id === currentQueue[currentIndex]);
@@ -151,7 +158,7 @@ function App() {
       )}
 
       {mode === StudyMode.STUDY && currentQuestion && (
-        <div className="flex flex-col h-full w-full bg-slate-100 shadow-xl animate-in fade-in duration-300 relative">
+        <div className="flex flex-col h-full w-full bg-slate-100 shadow-xl relative">
             {/* Header */}
             <header className="bg-white px-4 py-2 flex items-center justify-between shadow-sm z-20 flex-shrink-0">
                 <button 
@@ -179,13 +186,25 @@ function App() {
             </header>
 
             {/* Content - 减少内边距以适配移动端 */}
-            <main className="flex-grow overflow-hidden p-2 sm:p-4">
-                <Flashcard 
-                    key={currentQuestion.id} 
-                    question={currentQuestion}
-                    onResult={handleCardResult}
-                    onNext={() => {}} 
-                />
+            <main className="flex-grow overflow-hidden p-2 sm:p-4 bg-slate-100">
+                <AnimatePresence mode='wait'>
+                    <motion.div
+                        key={currentQuestion.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
+                        className="h-full"
+                    >
+                        <Flashcard 
+                            question={currentQuestion}
+                            onResult={handleCardResult}
+                            onPrev={handlePrev}
+                            hasPrev={currentIndex > 0}
+                            onNext={() => {}} 
+                        />
+                    </motion.div>
+                </AnimatePresence>
             </main>
         </div>
       )}
