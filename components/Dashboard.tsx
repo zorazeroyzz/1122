@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { QUESTIONS, getCategories } from '../services/questions';
 import { ProgressMap, UserProgress, QuestionType } from '../types';
-import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle } from 'lucide-react';
+import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight } from 'lucide-react';
+import QuestionListView from './QuestionListView';
 
 interface DashboardProps {
   progress: ProgressMap;
@@ -12,19 +13,16 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStartReview, onReset }) => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [viewListType, setViewListType] = useState<'mastered' | 'hard' | null>(null);
+  
   const categories = getCategories();
   
   const totalQuestions = QUESTIONS.length;
   const progressValues = Object.values(progress) as UserProgress[];
   
-  // 统计逻辑更新：
-  // Mastered: 明确标记为 mastered 的
+  // 统计逻辑
   const masteredCount = progressValues.filter(p => p.status === 'mastered').length;
-  
-  // Hard: 标记为 learning 的 (即点过"没记住"的)
   const hardQuestionsCount = progressValues.filter(p => p.status === 'learning').length;
-  
-  // New: 总数 - (掌握 + 攻坚)
   const newQuestionsCount = totalQuestions - masteredCount - hardQuestionsCount;
 
   const getCategoryStats = (cat: string) => {
@@ -36,6 +34,17 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
           judgment: qs.filter(q => q.type === 'judgment').length,
           mastered: qs.filter(q => progress[q.id]?.status === 'mastered').length
       };
+  };
+
+  // 获取查看列表的题目数据
+  const getListQuestions = () => {
+      if (viewListType === 'mastered') {
+          return QUESTIONS.filter(q => progress[q.id]?.status === 'mastered');
+      }
+      if (viewListType === 'hard') {
+          return QUESTIONS.filter(q => progress[q.id]?.status === 'learning');
+      }
+      return [];
   };
 
   return (
@@ -54,20 +63,39 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
             </div>
             <p className="text-2xl font-bold text-slate-800">{totalQuestions}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        
+        {/* Clickable Mastered Card */}
+        <button 
+            onClick={() => setViewListType('mastered')}
+            className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-green-300 hover:shadow-md transition-all text-left relative group active:scale-95"
+        >
+            <div className="absolute top-4 right-4 text-slate-300 group-hover:text-green-500 transition-colors">
+                <ChevronRight className="w-4 h-4" />
+            </div>
             <div className="flex items-center gap-2 text-green-600 mb-2">
                 <CheckCircle className="w-5 h-5" />
                 <span className="font-semibold text-sm">已掌握</span>
             </div>
             <p className="text-2xl font-bold text-slate-800">{masteredCount}</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            <span className="text-xs text-slate-400 mt-1 block">点击查看列表</span>
+        </button>
+
+        {/* Clickable Hard Card */}
+        <button 
+            onClick={() => setViewListType('hard')}
+            className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-orange-300 hover:shadow-md transition-all text-left relative group active:scale-95"
+        >
+            <div className="absolute top-4 right-4 text-slate-300 group-hover:text-orange-500 transition-colors">
+                <ChevronRight className="w-4 h-4" />
+            </div>
             <div className="flex items-center gap-2 text-orange-500 mb-2">
                 <AlertTriangle className="w-5 h-5" />
                 <span className="font-semibold text-sm">需攻克</span>
             </div>
             <p className="text-2xl font-bold text-slate-800">{hardQuestionsCount}</p>
-        </div>
+            <span className="text-xs text-slate-400 mt-1 block">点击查看列表</span>
+        </button>
+
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 text-blue-500 mb-2">
                 <Zap className="w-5 h-5" />
@@ -187,6 +215,16 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
                 </div>
             </div>
         </div>
+      )}
+
+      {/* List View Modal */}
+      {viewListType && (
+          <QuestionListView 
+              title={viewListType === 'mastered' ? '已掌握题目列表' : '需攻克题目列表'}
+              type={viewListType}
+              questions={getListQuestions()}
+              onClose={() => setViewListType(null)}
+          />
       )}
     </div>
   );
