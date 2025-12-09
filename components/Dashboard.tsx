@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { QUESTIONS, getCategories } from '../services/questions';
 import { ProgressMap, UserProgress, QuestionType, Question } from '../types';
-import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight, Eye, History, Search } from 'lucide-react';
+import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight, Eye, History, Search, PieChart, TrendingUp, BarChart3, Lightbulb } from 'lucide-react';
 import QuestionListView from './QuestionListView';
 
 interface DashboardProps {
@@ -19,6 +19,14 @@ interface ActiveListViewData {
 }
 
 const CHANGELOG = [
+  {
+    version: 'v1.4',
+    date: '2024-05-25',
+    changes: [
+      '新增“智能学习报告”：自动分析薄弱分类和短板题型，提供针对性复习建议。',
+      '界面优化：调整了仪表盘布局，使学习状态更加直观。'
+    ]
+  },
   {
     version: 'v1.3',
     date: '2024-05-24',
@@ -79,6 +87,75 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
         q.options?.some(o => o.toLowerCase().includes(lowerQuery))
     );
   }, [searchQuery]);
+
+  // Report Analysis Logic
+  const report = useMemo(() => {
+    const catStats: Record<string, { total: number, hard: number, mastered: number }> = {};
+    const typeStats: Record<string, { total: number, mastered: number }> = {
+        'single': { total: 0, mastered: 0 },
+        'multiple': { total: 0, mastered: 0 },
+        'judgment': { total: 0, mastered: 0 }
+    };
+
+    QUESTIONS.forEach(q => {
+        const p = progress[q.id];
+        const status = p?.status || 'new';
+
+        // Category
+        if (!catStats[q.category]) catStats[q.category] = { total: 0, hard: 0, mastered: 0 };
+        catStats[q.category].total++;
+        if (status === 'learning') catStats[q.category].hard++;
+        if (status === 'mastered') catStats[q.category].mastered++;
+
+        // Type
+        if (typeStats[q.type]) {
+            typeStats[q.type].total++;
+            if (status === 'mastered') typeStats[q.type].mastered++;
+        }
+    });
+
+    // Find Weakest Category (Most Hard Questions, or Lowest Mastery Rate if tied)
+    let weakestCat = '';
+    let maxHard = -1;
+    let minCatRate = 1.1;
+
+    Object.entries(catStats).forEach(([cat, stats]) => {
+        const rate = stats.total > 0 ? stats.mastered / stats.total : 0;
+        if (stats.hard > maxHard) {
+            maxHard = stats.hard;
+            weakestCat = cat;
+            minCatRate = rate;
+        } else if (stats.hard === maxHard) {
+            if (rate < minCatRate) {
+                minCatRate = rate;
+                weakestCat = cat;
+            }
+        }
+    });
+
+    // Find Weakest Type (Lowest Mastery Rate)
+    let weakestType = '';
+    let minTypeRate = 1.1;
+    Object.entries(typeStats).forEach(([type, stats]) => {
+        if (stats.total > 0) {
+            const rate = stats.mastered / stats.total;
+            if (rate < minTypeRate) {
+                minTypeRate = rate;
+                weakestType = type;
+            }
+        }
+    });
+
+    const typeNameMap: Record<string, string> = { 'single': '单选题', 'multiple': '多选题', 'judgment': '判断题' };
+
+    return {
+        weakestCategory: weakestCat,
+        weakestCategoryHardCount: maxHard,
+        weakestType: typeNameMap[weakestType] || '未知',
+        weakestTypeRate: Math.round(minTypeRate * 100),
+        overallRate: Math.round((masteredCount / totalQuestions) * 100)
+    };
+  }, [progress, masteredCount, totalQuestions]);
 
   const getCategoryStats = (cat: string) => {
       const qs = QUESTIONS.filter(q => q.category === cat);
@@ -238,7 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
 
       {/* Categories */}
       <h2 className="text-xl font-bold text-slate-800 mb-4">分类专项突破</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
         {categories.map(cat => {
             const stats = getCategoryStats(cat);
             const percent = stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0;
@@ -260,6 +337,87 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
                 </button>
             );
         })}
+      </div>
+
+      {/* Study Report Section */}
+      <div className="mb-12 animate-in slide-in-from-bottom-4 duration-700">
+        <div className="flex items-center gap-2 mb-4">
+            <PieChart className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-xl font-bold text-slate-800">智能学习报告</h2>
+        </div>
+        
+        <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200 rounded-2xl p-6 shadow-sm">
+            {masteredCount === 0 && hardQuestionsCount === 0 ? (
+                <div className="text-center py-4 text-slate-500">
+                    <p className="mb-2">尚未开始学习，暂无分析数据。</p>
+                    <button onClick={onStartReview} className="text-indigo-600 font-bold hover:underline">立即开始第一次练习</button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Overall Progress */}
+                    <div className="flex items-center gap-4">
+                        <div className="relative w-20 h-20 flex-shrink-0">
+                            <svg className="w-full h-full transform -rotate-90">
+                                <circle cx="40" cy="40" r="36" stroke="#e2e8f0" strokeWidth="8" fill="transparent" />
+                                <circle cx="40" cy="40" r="36" stroke="#4f46e5" strokeWidth="8" fill="transparent" strokeDasharray={`${2 * Math.PI * 36}`} strokeDashoffset={`${2 * Math.PI * 36 * (1 - report.overallRate / 100)}`} className="transition-all duration-1000 ease-out" />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-slate-700">
+                                {report.overallRate}%
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-700">整体掌握程度</h3>
+                            <p className="text-sm text-slate-500">
+                                {report.overallRate < 30 ? '起步阶段，继续加油！' : report.overallRate < 80 ? '稳步提升中！' : '表现优秀，保持状态！'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="h-px bg-slate-200 md:hidden"></div>
+
+                    {/* Weakness Analysis */}
+                    <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-red-50 rounded-lg text-red-500 mt-0.5">
+                                <TrendingUp className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold text-slate-400 uppercase">攻坚重点 (错题最多)</div>
+                                <div className="font-bold text-slate-800">{report.weakestCategory || '暂无'}</div>
+                                {report.weakestCategoryHardCount > 0 && (
+                                    <div className="text-xs text-red-500 font-medium">包含 {report.weakestCategoryHardCount} 道待攻克题目</div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-amber-50 rounded-lg text-amber-500 mt-0.5">
+                                <BarChart3 className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold text-slate-400 uppercase">短板题型 (掌握率最低)</div>
+                                <div className="font-bold text-slate-800">{report.weakestType}</div>
+                                <div className="text-xs text-slate-500">当前掌握率: {report.weakestTypeRate}%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Suggestion */}
+                    <div className="md:col-span-2 bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex gap-3 items-start mt-2">
+                        <Lightbulb className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="font-bold text-indigo-900 text-sm">AI 学习建议</h4>
+                            <p className="text-sm text-indigo-700 mt-1">
+                                {report.weakestCategoryHardCount > 0 
+                                    ? `建议优先点击上方的“需攻克”列表，重点复习 ${report.weakestCategory} 中的错题。`
+                                    : `建议针对 ${report.weakestCategory} 分类下的 ${report.weakestType} 进行专项强化练习。`
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
       </div>
 
       {/* Footer Actions & Changelog */}
