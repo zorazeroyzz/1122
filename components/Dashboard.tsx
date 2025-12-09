@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { QUESTIONS, getCategories } from '../services/questions';
 import { ProgressMap, UserProgress, QuestionType, Question } from '../types';
-import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight, Eye } from 'lucide-react';
+import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight, Eye, History } from 'lucide-react';
 import QuestionListView from './QuestionListView';
 
 interface DashboardProps {
@@ -17,6 +17,35 @@ interface ActiveListViewData {
   title: string;
   questions: Question[];
 }
+
+const CHANGELOG = [
+  {
+    version: 'v1.2',
+    date: '2024-05-23',
+    changes: [
+      '全面修复题库信息：补全了电气、动火、危化品、辐射防护等章节中被省略号（...）代替的题干与选项，确保内容完整准确。',
+      '修正题目逻辑：修复了部分多选题（如“完整的隔离包括”、“防异物控制”等）被错误录入为单选的问题。',
+      '优化文本显示：修复了部分选项重复或格式错误的问题。'
+    ]
+  },
+  {
+    version: 'v1.1',
+    date: '2024-05-22',
+    changes: [
+      '新增“速记背诵模式”：支持按分类只看未掌握题目，并直接高亮正确答案。',
+      '优化答题体验：单选题和判断题选择后自动判断并跳转下一题。',
+      '增加分类筛选功能：支持按单选、多选、判断题型进行专项练习。'
+    ]
+  },
+  {
+    version: 'v1.0',
+    date: '2024-05-20',
+    changes: [
+      '应用发布：包含电气、动火、危化品等7大类安全考核题库。',
+      '核心功能：支持错题自动加入“需攻克”列表，智能复习算法。'
+    ]
+  }
+];
 
 const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStartReview, onReset }) => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -177,8 +206,43 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
         })}
       </div>
 
-      <div className="mt-12 text-center pb-8">
-          <button onClick={onReset} className="text-sm text-slate-400 hover:text-red-500 underline decoration-red-200">重置所有进度</button>
+      {/* Footer Actions & Changelog */}
+      <div className="mt-16 pt-10 border-t border-slate-200">
+          <div className="text-center mb-10">
+              <button onClick={onReset} className="text-sm text-slate-400 hover:text-red-500 underline decoration-red-200 transition-colors">
+                  重置所有学习进度
+              </button>
+          </div>
+          
+          <div className="max-w-2xl mx-auto">
+            <div className="flex items-center justify-center gap-2 mb-6 text-slate-400">
+                <History className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-widest">更新日志</span>
+            </div>
+            
+            <div className="space-y-8 pl-2 sm:pl-0">
+              {CHANGELOG.map((log, index) => (
+                <div key={index} className="relative pl-6 sm:pl-8 border-l-2 border-slate-200 last:border-0 last:pb-0 pb-1">
+                  <div className={`absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ring-4 ring-slate-50 ${index === 0 ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+                  <div className="flex items-baseline gap-2 mb-2">
+                      <span className={`text-sm font-bold ${index === 0 ? 'text-indigo-600' : 'text-slate-600'}`}>{log.version}</span>
+                      <span className="text-xs text-slate-400 font-mono">{log.date}</span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {log.changes.map((change, i) => (
+                      <li key={i} className="text-xs text-slate-500 leading-relaxed flex gap-2">
+                        <span className="block w-1 h-1 bg-slate-300 rounded-full mt-1.5 flex-shrink-0" />
+                        <span>{change}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="text-center mt-8 text-[10px] text-slate-300">
+                &copy; 2024 安全考核记忆大师
+            </div>
+          </div>
       </div>
 
       {/* Category Selection Modal */}
