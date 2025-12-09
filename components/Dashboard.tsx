@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { QUESTIONS, getCategories } from '../services/questions';
-import { ProgressMap, UserProgress, QuestionType } from '../types';
-import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight } from 'lucide-react';
+import { ProgressMap, UserProgress, QuestionType, Question } from '../types';
+import { BookOpen, AlertTriangle, CheckCircle, Zap, X, ListFilter, CheckSquare, HelpCircle, ChevronRight, Eye } from 'lucide-react';
 import QuestionListView from './QuestionListView';
 
 interface DashboardProps {
@@ -11,9 +11,16 @@ interface DashboardProps {
   onReset: () => void;
 }
 
+// Helper interface for the active list view
+interface ActiveListViewData {
+  type: 'mastered' | 'hard' | 'study';
+  title: string;
+  questions: Question[];
+}
+
 const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStartReview, onReset }) => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [viewListType, setViewListType] = useState<'mastered' | 'hard' | null>(null);
+  const [activeListView, setActiveListView] = useState<ActiveListViewData | null>(null);
   
   const categories = getCategories();
   
@@ -36,15 +43,38 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
       };
   };
 
-  // 获取查看列表的题目数据
-  const getListQuestions = () => {
-      if (viewListType === 'mastered') {
-          return QUESTIONS.filter(q => progress[q.id]?.status === 'mastered');
-      }
-      if (viewListType === 'hard') {
-          return QUESTIONS.filter(q => progress[q.id]?.status === 'learning');
-      }
-      return [];
+  // Open Mastered List
+  const handleOpenMasteredList = () => {
+    setActiveListView({
+      type: 'mastered',
+      title: '已掌握题目列表',
+      questions: QUESTIONS.filter(q => progress[q.id]?.status === 'mastered')
+    });
+  };
+
+  // Open Hard List
+  const handleOpenHardList = () => {
+    setActiveListView({
+      type: 'hard',
+      title: '需攻克题目列表',
+      questions: QUESTIONS.filter(q => progress[q.id]?.status === 'learning')
+    });
+  };
+
+  // Open Study Mode (Unmastered for specific category)
+  const handleOpenStudyList = (category: string) => {
+    // Filter questions: Belong to category AND (status is undefined/new OR status is learning)
+    // i.e., status !== 'mastered'
+    const unmasteredQuestions = QUESTIONS.filter(q => 
+      q.category === category && progress[q.id]?.status !== 'mastered'
+    );
+
+    setActiveListView({
+      type: 'study',
+      title: `${category} - 速记背诵`,
+      questions: unmasteredQuestions
+    });
+    setSelectedCategory(null); // Close the category modal
   };
 
   return (
@@ -66,7 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
         
         {/* Clickable Mastered Card */}
         <button 
-            onClick={() => setViewListType('mastered')}
+            onClick={handleOpenMasteredList}
             className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-green-300 hover:shadow-md transition-all text-left relative group active:scale-95"
         >
             <div className="absolute top-4 right-4 text-slate-300 group-hover:text-green-500 transition-colors">
@@ -82,7 +112,7 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
 
         {/* Clickable Hard Card */}
         <button 
-            onClick={() => setViewListType('hard')}
+            onClick={handleOpenHardList}
             className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-orange-300 hover:shadow-md transition-all text-left relative group active:scale-95"
         >
             <div className="absolute top-4 right-4 text-slate-300 group-hover:text-orange-500 transition-colors">
@@ -166,19 +196,42 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
                 </div>
                 
                 <div className="p-6 grid gap-4">
-                    <p className="text-sm text-slate-500 mb-2">请选择要练习的题型：</p>
+                    {/* NEW FEATURE: Study Mode Button */}
+                    <button
+                        onClick={() => handleOpenStudyList(selectedCategory)}
+                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-xl shadow-lg shadow-indigo-200 hover:scale-[1.02] active:scale-[0.98] transition-all group mb-2"
+                    >
+                         <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/20 rounded-lg">
+                                <Eye className="w-6 h-6" />
+                            </div>
+                            <div className="text-left">
+                                <span className="font-bold text-lg block">速记背诵模式</span>
+                                <span className="text-indigo-100 text-xs">只看未掌握 / 答案高亮</span>
+                            </div>
+                        </div>
+                        <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold">
+                            {getCategoryStats(selectedCategory).total - getCategoryStats(selectedCategory).mastered} 题
+                        </span>
+                    </button>
+
+                    <div className="relative flex py-2 items-center">
+                        <div className="flex-grow border-t border-slate-200"></div>
+                        <span className="flex-shrink-0 mx-4 text-slate-300 text-xs">或者开始练习</span>
+                        <div className="flex-grow border-t border-slate-200"></div>
+                    </div>
                     
                     <button 
                         onClick={() => onStartCategory(selectedCategory)}
-                        className="flex items-center justify-between p-4 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors group"
+                        className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors group"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-indigo-200 text-indigo-700 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            <div className="p-2 bg-slate-100 text-slate-500 rounded-lg group-hover:bg-white group-hover:shadow-sm transition-all">
                                 <ListFilter className="w-5 h-5" />
                             </div>
-                            <span className="font-bold text-indigo-900">全部题型</span>
+                            <span className="font-bold text-slate-700">全部题型练习</span>
                         </div>
-                        <span className="text-indigo-600 font-bold">{getCategoryStats(selectedCategory).total} 题</span>
+                        <span className="text-slate-400 font-medium text-sm">{getCategoryStats(selectedCategory).total} 题</span>
                     </button>
 
                     <div className="grid grid-cols-3 gap-3">
@@ -218,12 +271,12 @@ const Dashboard: React.FC<DashboardProps> = ({ progress, onStartCategory, onStar
       )}
 
       {/* List View Modal */}
-      {viewListType && (
+      {activeListView && (
           <QuestionListView 
-              title={viewListType === 'mastered' ? '已掌握题目列表' : '需攻克题目列表'}
-              type={viewListType}
-              questions={getListQuestions()}
-              onClose={() => setViewListType(null)}
+              title={activeListView.title}
+              type={activeListView.type}
+              questions={activeListView.questions}
+              onClose={() => setActiveListView(null)}
           />
       )}
     </div>

@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { X, CheckCircle, BookOpen, AlertTriangle, ChevronDown, ChevronRight, Filter } from 'lucide-react';
+import { X, CheckCircle, BookOpen, AlertTriangle, ChevronDown, ChevronRight, Filter, Zap } from 'lucide-react';
 import { Question } from '../types';
 
 interface QuestionListViewProps {
   title: string;
-  type: 'mastered' | 'hard';
+  type: 'mastered' | 'hard' | 'study'; // Added 'study'
   questions: Question[];
   onClose: () => void;
 }
@@ -59,12 +59,31 @@ const QuestionListView: React.FC<QuestionListViewProps> = ({ title, type, questi
       }
   };
 
+  // Dynamic header color based on type
+  const getHeaderColor = () => {
+      switch (type) {
+          case 'mastered': return 'bg-green-600';
+          case 'hard': return 'bg-orange-500';
+          case 'study': return 'bg-indigo-600'; // Blue for study mode
+          default: return 'bg-slate-700';
+      }
+  };
+
+  const getHeaderIcon = () => {
+      switch (type) {
+          case 'mastered': return <CheckCircle className="w-6 h-6" />;
+          case 'hard': return <AlertTriangle className="w-6 h-6" />;
+          case 'study': return <Zap className="w-6 h-6" />;
+          default: return <BookOpen className="w-6 h-6" />;
+      }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-100 z-[100] flex flex-col animate-in slide-in-from-bottom-10 duration-200">
       {/* Header */}
-      <div className={`px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between shadow-md flex-shrink-0 ${type === 'mastered' ? 'bg-green-600' : 'bg-orange-500'}`}>
+      <div className={`px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between shadow-md flex-shrink-0 ${getHeaderColor()}`}>
         <div className="flex items-center gap-3 text-white">
-          {type === 'mastered' ? <CheckCircle className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
+          {getHeaderIcon()}
           <div>
             <h2 className="text-lg sm:text-xl font-bold">{title}</h2>
             <p className="text-xs opacity-90 font-medium">共 {questions.length} 题</p>
@@ -87,12 +106,15 @@ const QuestionListView: React.FC<QuestionListViewProps> = ({ title, type, questi
           </div>
         ) : (
           categories.map(category => {
+            // Default: if only one category (e.g. specialized study), expand it. 
+            // If viewing global lists (mastered/hard), default to collapsed if too many, but here we keep simple.
             const isCollapsed = collapsedCats.includes(category);
             const catQuestions = groupedQuestions[category];
             
             return (
                 <div key={category} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-200">
-                    {/* Collapsible Header */}
+                    {/* Collapsible Header - Only show if we have multiple categories or generic lists. 
+                        If we are in 'study' mode for a specific category, we might still want it for consistency. */}
                     <button 
                         onClick={() => toggleCategory(category)}
                         className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors border-b border-slate-100"
@@ -101,7 +123,9 @@ const QuestionListView: React.FC<QuestionListViewProps> = ({ title, type, questi
                             {isCollapsed ? <ChevronRight className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                             <h3 className="font-bold text-slate-700 text-base">{category}</h3>
                         </div>
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${type === 'mastered' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full 
+                            ${type === 'mastered' ? 'bg-green-100 text-green-700' : 
+                              type === 'hard' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700'}`}>
                            {catQuestions.length}
                         </span>
                     </button>
