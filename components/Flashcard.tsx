@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { CheckCircle, XCircle, ArrowRight, BookOpen, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Question } from '../types';
@@ -14,6 +14,8 @@ interface FlashcardProps {
 const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPrev }) => {
   const [selected, setSelected] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
+  const autoAdvanceTimer = useRef<number | null>(null);
 
   // Motion values for swipe effect
   const x = useMotionValue(0);
@@ -24,8 +26,20 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
     // Reset state when question changes
     setSelected([]);
     setIsSubmitted(false);
+    setIsAutoAdvancing(false);
+    if (autoAdvanceTimer.current) {
+        clearTimeout(autoAdvanceTimer.current);
+        autoAdvanceTimer.current = null;
+    }
     x.set(0); // Reset position
   }, [question.id, x]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+      return () => {
+          if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+      };
+  }, []);
 
   // Check correctness helper
   const checkAnswer = (userSelection: string[]) => {
@@ -43,8 +57,13 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
 
   const isCorrect = isSubmitted && checkAnswer(selected);
 
+  const triggerNext = (difficulty: 'easy' | 'hard') => {
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+      onResult(difficulty);
+  };
+
   const handleSelect = (key: string) => {
-    if (isSubmitted) return;
+    if (isSubmitted || isAutoAdvancing) return;
 
     if (question.type === 'multiple') {
       setSelected(prev => 
@@ -52,18 +71,35 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
       );
     } else {
       // Single or Judgment: Select and auto-submit
-      setSelected([key]);
+      const newSelected = [key];
+      setSelected(newSelected);
       setIsSubmitted(true);
+      
+      const correct = checkAnswer(newSelected);
+      if (correct) {
+          setIsAutoAdvancing(true);
+          autoAdvanceTimer.current = window.setTimeout(() => {
+              triggerNext('easy');
+          }, 600); // 600ms delay for visual feedback
+      }
     }
   };
 
   const handleSubmitMultiple = () => {
     if (selected.length === 0) return;
     setIsSubmitted(true);
+    
+    const correct = checkAnswer(selected);
+    if (correct) {
+        setIsAutoAdvancing(true);
+        autoAdvanceTimer.current = window.setTimeout(() => {
+            triggerNext('easy');
+        }, 600);
+    }
   };
 
-  const handleNext = () => {
-    onResult(isCorrect ? 'easy' : 'hard');
+  const handleManualNext = () => {
+    triggerNext(isCorrect ? 'easy' : 'hard');
   };
 
   // Helper styles
@@ -93,10 +129,10 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
         dragDirectionLock
         onDragEnd={(e, { offset, velocity }) => {
           const swipeThreshold = 50;
-          if (offset.x > swipeThreshold && hasPrev && onPrev) {
+          if (offset.x > swipeThreshold && hasPrev && onPrev && !isAutoAdvancing) {
              onPrev();
-          } else if (offset.x < -swipeThreshold && isSubmitted) {
-             handleNext();
+          } else if (offset.x < -swipeThreshold && isSubmitted && !isAutoAdvancing) {
+             handleManualNext();
           }
         }}
         className="relative flex-grow w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col"
@@ -132,7 +168,7 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
                         {['√', '×'].map((opt) => (
                              <button 
                                 key={opt}
-                                disabled={isSubmitted}
+                                disabled={isSubmitted || isAutoAdvancing}
                                 onClick={() => handleSelect(opt)}
                                 className={`flex-1 py-4 text-center rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 relative overflow-hidden select-none
                                     ${getOptionStyle(opt)}
@@ -160,7 +196,7 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
                         return (
                             <button 
                                 key={idx}
-                                disabled={isSubmitted} 
+                                disabled={isSubmitted || isAutoAdvancing} 
                                 onClick={() => handleSelect(letter)}
                                 className={`w-full p-3 rounded-lg border-2 flex items-start gap-3 transition-all text-sm leading-relaxed text-left relative select-none
                                     ${getOptionStyle(letter)}
@@ -201,7 +237,7 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
                                 {isCorrect ? (
                                     <>
                                         <CheckCircle className="w-5 h-5 text-green-600" />
-                                        <span className="text-green-800">回答正确！</span>
+                                        <span className="text-green-800">{isAutoAdvancing ? '回答正确！即将进入下一题...' : '回答正确！'}</span>
                                     </>
                                 ) : (
                                     <>
@@ -241,7 +277,8 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
             {hasPrev && (
                 <button
                     onClick={onPrev}
-                    className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                    disabled={isAutoAdvancing}
+                    className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors disabled:opacity-50"
                     title="上一题"
                 >
                     <ArrowLeft className="w-6 h-6" />
@@ -252,7 +289,7 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
                 question.type === 'multiple' ? (
                      <button 
                         onClick={handleSubmitMultiple}
-                        disabled={selected.length === 0}
+                        disabled={selected.length === 0 || isAutoAdvancing}
                         className="flex-grow py-3 bg-indigo-600 disabled:bg-slate-300 disabled:cursor-not-allowed hover:bg-indigo-700 text-white rounded-xl font-bold text-base shadow-md active:scale-[0.98] transition-all"
                     >
                         确认提交
@@ -264,10 +301,11 @@ const Flashcard: React.FC<FlashcardProps> = ({ question, onResult, onPrev, hasPr
                 )
             ) : (
                 <button 
-                    onClick={handleNext}
-                    className={`flex-grow py-3 text-white rounded-xl font-bold text-base shadow-md active:scale-[0.98] flex items-center justify-center gap-2 transition-transform ${isCorrect ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                    onClick={handleManualNext}
+                    disabled={isAutoAdvancing}
+                    className={`flex-grow py-3 text-white rounded-xl font-bold text-base shadow-md active:scale-[0.98] flex items-center justify-center gap-2 transition-transform disabled:opacity-80 disabled:cursor-wait ${isCorrect ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                 >
-                    {isCorrect ? '太棒了，下一题' : '记住了，下一题'}
+                    {isAutoAdvancing ? '跳转中...' : (isCorrect ? '太棒了，下一题' : '记住了，下一题')}
                     <ArrowRight className="w-5 h-5" />
                 </button>
             )}
