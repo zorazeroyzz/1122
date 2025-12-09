@@ -151,23 +151,23 @@ function App() {
       )}
 
       {mode === StudyMode.STUDY && currentQuestion && (
-        <div className="flex flex-col h-full max-w-3xl mx-auto bg-slate-100 shadow-2xl min-w-0 animate-in fade-in duration-300 w-full relative">
+        <div className="flex flex-col h-full w-full bg-slate-100 shadow-xl animate-in fade-in duration-300 relative">
             {/* Header */}
-            <header className="bg-white px-6 py-4 flex items-center justify-between shadow-sm z-20 flex-shrink-0">
+            <header className="bg-white px-4 py-2 flex items-center justify-between shadow-sm z-20 flex-shrink-0">
                 <button 
                     onClick={exitSession}
                     className="p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors flex items-center gap-1"
                 >
                     <ArrowLeft className="w-5 h-5" />
-                    <span className="text-sm font-medium">返回</span>
+                    <span className="text-sm font-medium hidden sm:inline">返回</span>
                 </button>
                 
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center flex-1 mx-4">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                         进度 {currentIndex + 1} / {currentQueue.length}
                         <span className="text-green-500 ml-1" title="进度已自动保存"><Save className="w-3 h-3 inline" /></span>
                     </span>
-                    <div className="w-32 sm:w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="w-full max-w-[200px] h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div 
                             className="h-full bg-indigo-500 transition-all duration-300 ease-out"
                             style={{ width: `${((currentIndex + 1) / currentQueue.length) * 100}%` }}
@@ -175,11 +175,11 @@ function App() {
                     </div>
                 </div>
                 
-                <div className="w-16"></div> {/* Spacer for balance */}
+                <div className="w-8 sm:w-16"></div> {/* Spacer for balance */}
             </header>
 
-            {/* Content - 可滚动区域 */}
-            <main className="flex-grow overflow-y-auto p-4 pt-6 pb-0">
+            {/* Content - 减少内边距以适配移动端 */}
+            <main className="flex-grow overflow-hidden p-2 sm:p-4">
                 <Flashcard 
                     key={currentQuestion.id} 
                     question={currentQuestion}
